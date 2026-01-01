@@ -29,13 +29,13 @@
 현재 필터링 버전은 `namu_category_crawler_filtered.py` 입니다.
 ```bash
 python namu_category_crawler_filtered.py \
-  --max-pages 200 \
+  --max-pages 500 \
   --output data/attack_on_Titan_Namu.jsonl
 ```
 출력은 `data/attack_on_Titan_Namu_part1.jsonl`, `data/attack_on_Titan_Namu_part2.jsonl` 형태로 분할됩니다.
 
 ## Streamlit 앱
-`wiki.py`는 JSONL 업로드 → 벡터화 → RAG 질의응답을 수행하는 간단한 UI입니다.  
+`front.py, back.py`는 RAG 질의응답을 수행하는 간단한 UI입니다.  
 데이터를 업로드해 문서를 열거(목록 확인)하고 질문/응답 흐름을 검증하는 용도로 사용합니다.
 
 ## 기본 옵션
