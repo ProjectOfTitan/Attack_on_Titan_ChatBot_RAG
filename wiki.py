@@ -15,15 +15,25 @@ from langchain_core.prompts import ChatPromptTemplate
 st.set_page_config(page_title="RAG 챗봇", page_icon="🧩")
 st.title("🧩 데이터 기반 RAG 챗봇")
 
-# 2. 사이드바: 설정 및 파일 입력
+# 2. 경로 상수 설정 (리포지토리 구조에 맞춤)
+# 현재 파일(wiki.py)이 있는 폴더 기준으로 data/attack_on_Titan_Namu.jsonl을 찾습니다.
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE_PATH = os.path.join(CURRENT_DIR, "data", "attack_on_Titan_Namu.jsonl")
+INDEX_PATH = os.path.join(CURRENT_DIR, "faiss_index_store")
+
+# 3. 사이드바: API 키 입력만 받음 (파일 업로드 불필요)
 with st.sidebar:
     st.header("설정")
     openai_api_key = st.text_input("OpenAI API Key", type="password")
-    
-    # 동료가 준 파일을 여기서 업로드합니다.
-    uploaded_file = st.file_uploader("크롤링한 데이터 파일(.jsonl) 업로드", type=["jsonl"])
-    st.markdown("---")
-    st.caption("JSONL 파일은 한 줄에 하나의 JSON 데이터가 있어야 합니다.")
+    st.info("리포지토리 내장 데이터를 사용합니다.")
+
+    # (선택사항) 강제로 다시 학습시키고 싶을 때 누르는 버튼
+    if st.button("DB 재설정"):
+        if os.path.exists(INDEX_PATH):
+            import shutil
+            shutil.rmtree(INDEX_PATH)
+            st.cache_resource.clear()
+            st.rerun() # 앱 새로고침
 
 # 3. RAG 핵심 로직 (캐싱 적용)
 # @st.cache_resource는 벡터 DB 생성이 오래 걸리므로, 파일이 바뀌지 않으면 결과를 메모리에 저장해둡니다.
