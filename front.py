@@ -4,7 +4,7 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 import streamlit as st
 from dotenv import load_dotenv
-from llm import get_ai_response
+from back import get_ai_response
 
 
 st.set_page_config(page_title="TITAN_CHAT", page_icon="⚔️")
