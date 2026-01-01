@@ -61,7 +61,7 @@ def get_history_retriever():
 
 
 def get_llm(model='gpt-5-mini'):
-    llm = ChatOpenAI(model=model, streaming=True)
+    llm = ChatOpenAI(model=model)
     # llm = Ollama(model=model)
     return llm
 
@@ -138,6 +138,4 @@ def get_ai_response(user_message):
         },
     )
 
-    for chunk in stream:
-        if chunk:
-            yield chunk
+    return ai_response
