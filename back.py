@@ -3,7 +3,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, FewS
 from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_openai import ChatOpenAI
-# from langchain_openai import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_upstage import UpstageEmbeddings
 from langchain_community.chat_message_histories import ChatMessageHistory
@@ -30,7 +30,7 @@ def get_retriever():
     # embedding = UpstageEmbeddings(model='solar-embedding-1-large')
     # index_name = 'law-table-index'
     # database = Chroma(collection_name='chroma-inu-new', persist_directory="./chroma_inu-new", embedding_function=embedding) # 학칙만
-    database = Chroma(collection_name='titan_info', persist_directory="./attackTitan", embedding_function=embedding) #학칙+장학금
+    database = Chroma(collection_name='attackTitan', persist_directory="./attackTitan", embedding_function=embedding) #학칙+장학금
     retriever = database.as_retriever(search_kwargs={'k': 4})
     return retriever
 
