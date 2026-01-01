@@ -61,7 +61,7 @@ def get_history_retriever():
 
 
 def get_llm(model='gpt-5-mini'):
-    llm = ChatOpenAI(model=model, streaming=True)
+    llm = ChatOpenAI(model=model)
     # llm = Ollama(model=model)
     return llm
 
@@ -128,16 +128,14 @@ def get_rag_chain():
 def get_ai_response(user_message):
     dictionary_chain = get_dictionary_chain()
     rag_chain = get_rag_chain()
-
     raw_chain = {"input": dictionary_chain} | rag_chain
-
-    stream = raw_chain.stream(
-        {"question": user_message},
+    ai_response = raw_chain.stream(
+        {
+            "question": user_message
+        },
         config={
             "configurable": {"session_id": "abc123"}
         },
     )
 
-    for chunk in stream:
-        if chunk:
-            yield chunk
+    return ai_response
