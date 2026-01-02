@@ -5,13 +5,15 @@ from langchain_classic.chains.combine_documents import create_stuff_documents_ch
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
-from langchain_upstage import UpstageEmbeddings
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_community.llms import Ollama
+
+from dotenv import load_dotenv
 
 from config import answer_examples
+
+load_dotenv()
 
 
 
@@ -83,6 +85,18 @@ def get_dictionary_chain():
     return dictionary_chain
 
 
+def _sanitize_metadata(metadata: dict) -> dict:
+    if not metadata:
+        return {}
+    cleaned = {}
+    for key, value in metadata.items():
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            cleaned[key] = value
+        else:
+            cleaned[key] = str(value)
+    return cleaned
+
+
 def get_rag_chain():
     llm = get_llm()
     example_prompt = ChatPromptTemplate.from_messages(
@@ -125,17 +139,34 @@ def get_rag_chain():
     return conversational_rag_chain
 
 
-def get_ai_response(user_message):
+def get_retrieved_context(user_message: str, session_id: str):
+    dictionary_chain = get_dictionary_chain()
+    normalized_question = dictionary_chain.invoke({"question": user_message})
+    history = get_session_history(session_id)
+    history_aware_retriever = get_history_retriever()
+    docs = history_aware_retriever.invoke(
+        {"input": normalized_question, "chat_history": history.messages}
+    )
+    return [
+        {
+            "text": doc.page_content,
+            "metadata": _sanitize_metadata(doc.metadata),
+        }
+        for doc in docs
+    ]
+
+
+def get_ai_response(user_message, session_id: str = "abc123"):
     dictionary_chain = get_dictionary_chain()
     rag_chain = get_rag_chain()
-
+    retrieved_context = get_retrieved_context(user_message, session_id)
     raw_chain = {"input": dictionary_chain} | rag_chain
 
     stream = raw_chain.stream(
         {"question": user_message},
         config={
-            "configurable": {"session_id": "abc123"}
+            "configurable": {"session_id": session_id}
         },
     )
 
-    return ai_response
+    return ai_response, retrieved_context

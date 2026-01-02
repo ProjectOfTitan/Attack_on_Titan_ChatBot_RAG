@@ -10,7 +10,10 @@ __pycache__/
 *.log
 *.db
 /data/raw_data/  # 너무 용량이 큰 원본 데이터 폴더
+/data
+
 
 # OS 설정 파일
 .DS_Store
 Thumbs.db
+requirements.txt
