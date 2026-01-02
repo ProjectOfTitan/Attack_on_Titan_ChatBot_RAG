@@ -1,8 +1,9 @@
 
 import os
 from datetime import datetime, timezone
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
+from bson import ObjectId
 from pymongo.collection import Collection
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
@@ -33,8 +34,15 @@ CHAT_LOG_SCHEMA = {
             "ai_response": {"bsonType": "string"},
             "retrieved_context": {
                 "bsonType": "array",
-                "items": {"bsonType": "string"},
-                "description": "Retrieved document snippets",
+                "items": {
+                    "bsonType": "object",
+                    "required": ["text"],
+                    "properties": {
+                        "text": {"bsonType": "string"},
+                        "metadata": {"bsonType": "object"},
+                    },
+                },
+                "description": "Retrieved document snippets with metadata",
             },
             "feedback": {
                 "bsonType": "string",
@@ -71,7 +79,7 @@ def insert_chat_log(
     session_id: str,
     user_query: str,
     ai_response: str,
-    retrieved_context: Optional[Sequence[str]] = None,
+    retrieved_context: Optional[Sequence[dict]] = None,
     feedback: Optional[str] = None,
     timestamp: Optional[datetime] = None,
     db_name: str = "attackTitan",
@@ -88,6 +96,17 @@ def insert_chat_log(
     if feedback is not None:
         doc["feedback"] = feedback
     return collection.insert_one(doc)
+
+
+def update_feedback(
+    log_id: Union[ObjectId, str],
+    feedback: str,
+    db_name: str = "attackTitan",
+    collection_name: str = "chat_logs",
+):
+    collection = get_collection(db_name=db_name, collection_name=collection_name)
+    resolved_id = ObjectId(log_id) if isinstance(log_id, str) else log_id
+    return collection.update_one({"_id": resolved_id}, {"$set": {"feedback": feedback}})
 
 
 def ping() -> None:
