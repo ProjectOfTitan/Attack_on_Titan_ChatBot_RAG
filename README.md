@@ -2,7 +2,7 @@
 
 진격의 거인 나무위키 카테고리 페이지를 시작점으로 크롤링해 RAG에 적합한 구조화 텍스트(JSONL)를 만드는 프로젝트입니다.  
 카테고리 영역의 링크만 따라가며, 불필요한 UI/광고/이미지 요소를 제거해 환각을 줄이는 것을 목표로 합니다.  
-추가로 Streamlit 앱으로 데이터를 업로드해 열거(목록 확인) 및 질의응답을 진행할 수 있습니다.
+추가로 Streamlit 앱으로 진격의 거인 관련 질의응답을 진행할 수 있습니다.
 
 ## 주요 기능
 - 카테고리 링크 제한 추적: `#category-문서`, `#category-분류` 내부 링크만 따라감
@@ -29,13 +29,13 @@
 현재 필터링 버전은 `namu_category_crawler_filtered.py` 입니다.
 ```bash
 python namu_category_crawler_filtered.py \
-  --max-pages 200 \
+  --max-pages 500 \
   --output data/attack_on_Titan_Namu.jsonl
 ```
 출력은 `data/attack_on_Titan_Namu_part1.jsonl`, `data/attack_on_Titan_Namu_part2.jsonl` 형태로 분할됩니다.
 
 ## Streamlit 앱
-`wiki.py`는 JSONL 업로드 → 벡터화 → RAG 질의응답을 수행하는 간단한 UI입니다.  
+`front.py, back.py`는 RAG 질의응답을 수행하는 간단한 UI입니다.  
 데이터를 업로드해 문서를 열거(목록 확인)하고 질문/응답 흐름을 검증하는 용도로 사용합니다.
 
 ## 기본 옵션
