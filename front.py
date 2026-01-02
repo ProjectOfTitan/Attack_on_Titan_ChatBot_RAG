@@ -35,3 +35,16 @@ if user_question := st.chat_input(placeholder="진격거에 관련된 궁금한 
             ai_message = st.write_stream(ai_response)
             # print(st.session_state.message_list)
             st.session_state.message_list.append({"role": "ai", "content": ai_message})
+
+    feedback_key = f"feedback_{len(st.session_state.message_list)}"
+    
+    col1, col2, _ = st.columns([0.1, 0.1, 0.8])
+    with col1:
+        if st.button("👍", key=f"up_{feedback_key}"):
+            st.success("피드백 감사합니다!")
+            # save_feedback_to_mongodb(user_question, ai_message, "good") # 나중에 구현할 함수
+            
+    with col2:
+        if st.button("👎", key=f"down_{feedback_key}"):
+            st.error("피드백 감사합니다!")
+            # save_feedback_to_mongodb(user_question, ai_message, "bad")
