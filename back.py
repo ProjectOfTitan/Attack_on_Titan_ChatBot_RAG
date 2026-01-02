@@ -120,7 +120,7 @@ def get_rag_chain():
         input_messages_key="input",
         history_messages_key="chat_history",
         output_messages_key="answer",
-    ).pick('answer')
+    )# .pick('answer')  문서 조각을 가져오기 위한 주석처리
     
     return conversational_rag_chain
 
