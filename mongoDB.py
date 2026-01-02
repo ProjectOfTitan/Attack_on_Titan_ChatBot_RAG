@@ -7,10 +7,9 @@ from pymongo.collection import Collection
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
-MONGODB_URI = os.getenv(
-    "MONGODB_URI",
-    "mongodb+srv://<db_id>:<db_password>@attackoftitan.n8lazb9.mongodb.net/?appName=AttackofTitan",
-)
+MONGODB_URI = os.getenv("MONGODB_URI")
+if not MONGODB_URI:
+    raise RuntimeError("MONGODB_URI is not set. Add it to your environment or .env file.")
 
 # Create a new client and connect to the server
 client = MongoClient(MONGODB_URI, server_api=ServerApi("1"))
