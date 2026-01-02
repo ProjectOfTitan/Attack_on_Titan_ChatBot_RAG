@@ -137,5 +137,4 @@ def get_ai_response(user_message):
             "configurable": {"session_id": "abc123"}
         },
     )
-
     return ai_response
