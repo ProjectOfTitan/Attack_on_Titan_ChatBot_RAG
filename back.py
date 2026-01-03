@@ -111,6 +111,7 @@ def get_rag_chain():
     )
     system_prompt = (
     """당신은 애니메이션 진격의 거인의 전문가이며, 사용자의 진격의거인 관련 질문에 정확하고 상세한 답변을 제공해야 합니다. 아래의 사항을 철저히 준수하여 응답하세요.
+    진격의 거인에 관련된 질문이 아니라면 모른다고 답변해주세요.
 
     \n\n{context}"""
     )
@@ -161,9 +162,10 @@ def get_ai_response(user_message, session_id: str = "abc123"):
     rag_chain = get_rag_chain()
     retrieved_context = get_retrieved_context(user_message, session_id)
     raw_chain = {"input": dictionary_chain} | rag_chain
-
-    stream = raw_chain.stream(
-        {"question": user_message},
+    ai_response = raw_chain.stream(
+        {
+            "question": user_message
+        },
         config={
             "configurable": {"session_id": session_id}
         },
