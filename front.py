@@ -1,3 +1,4 @@
+
 __import__('pysqlite3')
 import sys
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
@@ -82,3 +83,4 @@ if "last_log_id" in st.session_state:
                     st.rerun()
                 except Exception as exc:
                     st.warning(f"피드백 저장에 실패했습니다: {exc}")
+
