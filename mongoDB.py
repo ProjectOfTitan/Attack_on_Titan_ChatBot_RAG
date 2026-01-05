@@ -17,7 +17,8 @@ if not MONGODB_URI:
     raise RuntimeError("MONGODB_URI is not set. Add it to your environment or .env file.")
 
 # Create a new client and connect to the server
-client = MongoClient(MONGODB_URI, server_api=ServerApi("1"))
+client = MongoClient(MONGODB_URI, server_api=ServerApi("1")
+                     ,tlsAllowInvalidCertificates=True)
 
 CHAT_LOG_SCHEMA = {
     "$jsonSchema": {
