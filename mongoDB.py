@@ -58,26 +58,39 @@ CHAT_LOG_SCHEMA = {
     }
 }
 
+_collection_cache = {}
+_schema_validated = False
+
 
 def get_collection(
     db_name: str = "attackTitan",
     collection_name: str = "chat_logs",
 ) -> Collection:
+    global _schema_validated
+    cache_key = (db_name, collection_name)
+    if cache_key in _collection_cache:
+        return _collection_cache[cache_key]
+
     db = client[db_name]
-    if collection_name not in db.list_collection_names():
-        db.create_collection(
-            collection_name,
-            validator=CHAT_LOG_SCHEMA,
-            validationLevel="moderate",
-        )
-    else:
-        db.command(
-            "collMod",
-            collection_name,
-            validator=CHAT_LOG_SCHEMA,
-            validationLevel="moderate",
-        )
-    return db[collection_name]
+    if not _schema_validated:
+        if collection_name not in db.list_collection_names():
+            db.create_collection(
+                collection_name,
+                validator=CHAT_LOG_SCHEMA,
+                validationLevel="moderate",
+            )
+        else:
+            db.command(
+                "collMod",
+                collection_name,
+                validator=CHAT_LOG_SCHEMA,
+                validationLevel="moderate",
+            )
+        _schema_validated = True
+
+    collection = db[collection_name]
+    _collection_cache[cache_key] = collection
+    return collection
 
 
 def insert_chat_log(
@@ -87,6 +100,7 @@ def insert_chat_log(
     retrieved_context: Optional[Sequence[dict]] = None,
     feedback: Optional[str] = None,
     timestamp: Optional[datetime] = None,
+    log_id: Optional[Union[ObjectId, str]] = None,
     db_name: str = "attackTitan",
     collection_name: str = "chat_logs",
 ):
@@ -98,6 +112,8 @@ def insert_chat_log(
         "retrieved_context": list(retrieved_context or []),
         "timestamp": timestamp or datetime.now(timezone.utc),
     }
+    if log_id is not None:
+        doc["_id"] = ObjectId(log_id) if isinstance(log_id, str) else log_id
     if feedback is not None:
         doc["feedback"] = feedback
     return collection.insert_one(doc)

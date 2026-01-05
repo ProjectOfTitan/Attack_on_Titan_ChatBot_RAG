@@ -1,13 +1,13 @@
-from langchain_core.output_parsers import StrOutputParser
+from functools import lru_cache
+
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, FewShotChatMessagePromptTemplate
-from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain_classic.chains import create_history_aware_retriever
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
 
 from dotenv import load_dotenv
 
@@ -19,6 +19,10 @@ load_dotenv()
 
 store = {}
 
+REPLACEMENTS = {
+    "사람을 나타내는 표현": "진격의거인 애니메이션 안의 등장인물이나 사람들",
+}
+
 
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
     if session_id not in store:
@@ -27,12 +31,15 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
     return store[session_id]
 
 
+@lru_cache(maxsize=1)
+def get_embeddings():
+    return OpenAIEmbeddings(model='text-embedding-3-small')
+
+
+@lru_cache(maxsize=1)
 def get_retriever():
-    embedding = OpenAIEmbeddings(model='text-embedding-3-small')
-    # embedding = UpstageEmbeddings(model='solar-embedding-1-large')
-    # index_name = 'law-table-index'
-    # database = Chroma(collection_name='chroma-inu-new', persist_directory="./chroma_inu-new", embedding_function=embedding) # 학칙만
-    database = Chroma(collection_name='attackTitan', persist_directory="./attackTitan", embedding_function=embedding) #학칙+장학금
+    # database = Chroma(collection_name='chroma-inu-new', persist_directory="./chroma_inu-new", embedding_function=get_embeddings()) # 학칙만
+    database = Chroma(collection_name='attackTitan', persist_directory="./attackTitan", embedding_function=get_embeddings()) #학칙+장학금
     retriever = database.as_retriever(search_kwargs={'k': 4})
     return retriever
 
@@ -68,21 +75,11 @@ def get_llm(model='gpt-5-mini'):
     return llm
 
 
-def get_dictionary_chain():
-    dictionary = ["사람을 나타내는 표현 -> 진격의거인 애니메이션 안의 등장인물이나 사람들"]
-    llm = get_llm()
-    prompt = ChatPromptTemplate.from_template(f"""
-        사용자의 질문을 보고, 우리의 사전을 참고해서 사용자의 질문을 변경해주세요.
-        만약 변경할 필요가 없다고 판단된다면, 사용자의 질문을 변경하지 않아도 됩니다.
-        그런 경우에는 질문만 리턴해주세요
-        사전: {dictionary}
-        
-        질문: {{question}}
-    """)
-
-    dictionary_chain = prompt | llm | StrOutputParser()
-    
-    return dictionary_chain
+def normalize_question(question: str) -> str:
+    normalized = question
+    for source, target in REPLACEMENTS.items():
+        normalized = normalized.replace(source, target)
+    return normalized
 
 
 def _sanitize_metadata(metadata: dict) -> dict:
@@ -97,7 +94,7 @@ def _sanitize_metadata(metadata: dict) -> dict:
     return cleaned
 
 
-def get_rag_chain():
+def get_answer_chain():
     llm = get_llm()
     example_prompt = ChatPromptTemplate.from_messages(
         [
@@ -162,30 +159,14 @@ def get_rag_chain():
             ("human", "{input}"),
         ]
     )
-    history_aware_retriever = get_history_retriever()
     question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
-    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-    
-    conversational_rag_chain = RunnableWithMessageHistory(
-        rag_chain,
-        get_session_history,
-        input_messages_key="input",
-        history_messages_key="chat_history",
-        output_messages_key="answer",
-    ).pick('answer')
-    
-    return conversational_rag_chain
+    return question_answer_chain
 
 
 def get_retrieved_context(user_message: str, session_id: str):
-    dictionary_chain = get_dictionary_chain()
-    normalized_question = dictionary_chain.invoke({"question": user_message})
-    history = get_session_history(session_id)
-    history_aware_retriever = get_history_retriever()
-    docs = history_aware_retriever.invoke(
-        {"input": normalized_question, "chat_history": history.messages}
-    )
+    normalized_question = normalize_question(user_message)
+    docs = retrieve_docs(normalized_question, session_id)
     return [
         {
             "text": doc.page_content,
@@ -195,17 +176,44 @@ def get_retrieved_context(user_message: str, session_id: str):
     ]
 
 
-def get_ai_response(user_message, session_id: str = "abc123"):
-    dictionary_chain = get_dictionary_chain()
-    rag_chain = get_rag_chain()
-    retrieved_context = get_retrieved_context(user_message, session_id)
-    raw_chain = {"input": dictionary_chain} | rag_chain
+def retrieve_docs(question: str, session_id: str):
+    history = get_session_history(session_id)
+    if len(history.messages) >= 2:
+        history_aware_retriever = get_history_retriever()
+        return history_aware_retriever.invoke(
+            {"input": question, "chat_history": history.messages}
+        )
+    return get_retriever().invoke(question)
 
-    ai_response = raw_chain.stream(
-        {"question": user_message},
-        config={
-            "configurable": {"session_id": session_id}
-        },
-    )
+
+def _stream_answer(chain, inputs: dict, history: BaseChatMessageHistory, user_message: str):
+    buffer = []
+    for chunk in chain.stream(inputs):
+        buffer.append(chunk)
+        yield chunk
+    answer = "".join(buffer)
+    history.add_user_message(user_message)
+    history.add_ai_message(answer)
+
+
+def get_ai_response(user_message, session_id: str = "abc123"):
+    normalized_question = normalize_question(user_message)
+    docs = retrieve_docs(normalized_question, session_id)
+    retrieved_context = [
+        {
+            "text": doc.page_content,
+            "metadata": _sanitize_metadata(doc.metadata),
+        }
+        for doc in docs
+    ]
+
+    history = get_session_history(session_id)
+    answer_chain = get_answer_chain()
+    inputs = {
+        "input": normalized_question,
+        "context": docs,
+        "chat_history": history.messages,
+    }
+    ai_response = _stream_answer(answer_chain, inputs, history, user_message)
 
     return ai_response, retrieved_context
