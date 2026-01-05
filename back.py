@@ -46,7 +46,6 @@ def get_retriever():
 
 def get_history_retriever():
     llm = get_llm()
-    fast_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     retriever = get_retriever()
     
     contextualize_q_system_prompt = (
@@ -66,12 +65,12 @@ def get_history_retriever():
     )
     # gpt5대신 gpt4
     history_aware_retriever = create_history_aware_retriever(
-        fast_llm, retriever, contextualize_q_prompt
+        llm, retriever, contextualize_q_prompt
     )
     return history_aware_retriever
 
 
-def get_llm(model='gpt-5-mini'):
+def get_llm(model='gpt-4o-mini'):
     llm = ChatOpenAI(model=model)
     # llm = Ollama(model=model)
     return llm
