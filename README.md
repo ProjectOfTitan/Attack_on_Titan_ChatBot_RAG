@@ -1,48 +1,89 @@
 # 프로젝트 개요
 
-진격의 거인 나무위키 카테고리 페이지를 시작점으로 크롤링해 RAG에 적합한 구조화 텍스트(JSONL)를 만드는 프로젝트입니다.  
-카테고리 영역의 링크만 따라가며, 불필요한 UI/광고/이미지 요소를 제거해 환각을 줄이는 것을 목표로 합니다.  
-추가로 Streamlit 앱으로 진격의 거인 관련 질의응답을 진행할 수 있습니다.
+진격의 거인(Attack on Titan) 지식을 대상으로 RAG 파이프라인을 구성해 질문에 답하는 챗봇 프로젝트입니다.
+나무위키 카테고리 기반 크롤링 → 구조화(JSONL) → Chroma 벡터 저장 → Streamlit 챗 UI → MongoDB 로그 → RAGAS 평가까지의 흐름을 포함합니다.
 
-## 주요 기능
-- 카테고리 링크 제한 추적: `#category-문서`, `#category-분류` 내부 링크만 따라감
-- 해당 컨테이너가 없으면 해당 페이지는 크롤링하되 링크는 따라가지 않음
-- 제목/문단/리스트/인용문/표/토글 요소를 구조화해 추출
-- 이미지 제거, 링크는 텍스트만 남김(URL payload 제거)
-- 광고/TOC/카테고리 박스 등 불필요한 DOM 필터링
-- 섹션 단위로 청크 분할(섹션이 바뀌면 overlap 중단)
-- 표/인용문은 단독 청크로 분리하고 마커 부여
-- 500페이지 단위로 JSONL 파일 분할 저장
+## 핵심 기능
+- 나무위키 카테고리 기반 크롤링 및 텍스트 구조화(JSONL)
+- Chroma 벡터 스토어 기반 검색 + LLM 응답
+- Streamlit 챗봇 UI
+- 대화 로그/컨텍스트/피드백 MongoDB 저장
+- RAGAS 평가 배치 실행
+- LangGraph 버전의 그래프형 파이프라인(옵션)
 
-## 출력 형식(JSONL)
-각 줄은 아래 구조의 JSON 객체입니다.
-```json
-{
-  "title": "페이지 제목",
-  "section": "섹션 제목",
-  "chunk_index": "12",
-  "text": "청크 내용..."
-}
+## 구성 요소
+- 크롤러: `namu_category_crawler_filtered.py`
+- 벡터 저장소: `attackTitan/` (Chroma persist)
+- 백엔드(RAG): `back.py`
+- 프론트(Streamlit): `front.py`
+- MongoDB 스키마/로그: `mongoDB.py`
+- RAGAS 배치 평가: `ragas_batch.py`, `ragas_eval_from_json.py`
+- LangGraph 실험 코드: `langgraph/`
+
+## 빠른 시작
+
+### 1) 가상환경 및 설치
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-## 크롤러 실행
-현재 필터링 버전은 `namu_category_crawler_filtered.py` 입니다.
+### 2) 환경 변수 설정
+프로젝트 루트에 `.env` 파일을 만들고 아래 값을 설정합니다.
+```env
+OPENAI_API_KEY=your_openai_api_key
+MONGODB_URI=mongodb+srv://<id>:<pw>@attackoftitan.n8lazb9.mongodb.net/?appName=AttackofTitan
+```
+
+### 3) 챗봇 실행
+```bash
+streamlit run front.py
+```
+
+## 데이터 준비(선택)
+크롤러 실행으로 JSONL 데이터를 생성할 수 있습니다.
 ```bash
 python namu_category_crawler_filtered.py \
-  --max-pages 500 \
+  --max-pages 200 \
   --output data/attack_on_Titan_Namu.jsonl
 ```
-출력은 `data/attack_on_Titan_Namu_part1.jsonl`, `data/attack_on_Titan_Namu_part2.jsonl` 형태로 분할됩니다.
 
-## Streamlit 앱
-`front.py, back.py`는 RAG 질의응답을 수행하는 간단한 UI입니다.  
-데이터를 업로드해 문서를 열거(목록 확인)하고 질문/응답 흐름을 검증하는 용도로 사용합니다.
+## RAGAS 평가
 
-## 기본 옵션
-- `--chunk-size 1000`
-- `--chunk-overlap 90` (같은 섹션 내에서만 overlap)
-- `--min-block-chars 30`
-- `--min-page-chars 300`
-- `--min-paragraphs 1`
+### 1) 배치 생성 + 평가
+`ragas_batch.py`에 질문을 넣고 실행하면 답변을 생성하고 `ragas_answers.json`에 저장합니다.
+```bash
+python ragas_batch.py
+```
 
-## RAG 품질 팁
+### 2) 저장된 JSON으로 재평가
+```bash
+python ragas_eval_from_json.py --input ragas_answers.json
+```
+
+`ground_truth`가 있으면 다음처럼 추가 평가가 가능합니다.
+```bash
+python ragas_eval_from_json.py --input ragas_answers.json --ground-truths ground_truths.json
+```
+
+## MongoDB 로그 스키마
+저장되는 로그는 다음 필드를 포함합니다.
+- `session_id`: 사용자 세션 구분
+- `user_query`: 사용자 질문
+- `ai_response`: 모델 답변
+- `retrieved_context`: 검색된 문서 조각(텍스트 + 메타데이터)
+- `feedback`: (선택) 좋아요/싫어요
+- `timestamp`: 대화 시간
+
+## LangGraph(옵션)
+`langgraph/` 폴더에 그래프 기반 파이프라인 예시가 있습니다.
+```bash
+python langgraph/run_graph.py --question "에렌은 왜 땅울림을 했어?"
+```
+
+## 히스토리
+- 2026-01-05: RAG 파이프라인 최적화(검색 1회화, 룰 기반 치환, retriever 캐시) 및 로그 저장 비동기화 적용
+- 2026-01-05: RAGAS 평가 스크립트 추가 및 JSON 저장/재평가 흐름 정리
+
+
