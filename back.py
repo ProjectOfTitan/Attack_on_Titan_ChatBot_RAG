@@ -71,7 +71,7 @@ def get_history_retriever():
     return history_aware_retriever
 
 
-def get_llm(model='gpt-5-mini'):
+def get_llm(model='gpt-4o-mini'):
     llm = ChatOpenAI(model=model)
     # llm = Ollama(model=model)
     return llm
