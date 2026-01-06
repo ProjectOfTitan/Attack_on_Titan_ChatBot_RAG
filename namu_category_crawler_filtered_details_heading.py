@@ -20,6 +20,21 @@ DEFAULT_START_URLS = [
     "https://namu.wiki/w/%EB%B6%84%EB%A5%98:%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EC%A7%80%EC%97%AD",
     "https://namu.wiki/w/%EB%B6%84%EB%A5%98:%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EB%93%B1%EC%9E%A5%EC%9D%B8%EB%AC%BC?namespace=%EB%AC%B8%EC%84%9C&cuntil=%EC%B9%B4%EB%A6%AC%EB%82%98%20%EB%B8%8C%EB%9D%BC%EC%9A%B4",
     "https://namu.wiki/w/%EB%B6%84%EB%A5%98:%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EB%93%B1%EC%9E%A5%EC%9D%B8%EB%AC%BC?namespace=%EB%AC%B8%EC%84%9C&cfrom=%EC%B9%B4%EC%95%BC%28%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8%29",
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EA%B2%B0%EB%A7%90%20%EB%85%BC%EB%9E%80", # 결말 논란
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EB%96%A1%EB%B0%A5",  # 떡밥
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EB%8B%A8%ED%96%89%EB%B3%B8%20%EA%B0%81%ED%99%94%20%EB%B6%80%EC%A0%9C%EB%AA%A9", # 단행본 각화 부제목
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EB%93%B1%EC%9E%A5%EC%9D%B8%EB%AC%BC", # 등장 인물
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8:%20%ED%9B%84%ED%9A%8C%EC%97%86%EB%8A%94%20%EC%84%A0%ED%83%9D", #후회없는선택
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8%20Lost%20girls", # lost girls
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8%20Before%20the%20fall", # before the fall
+    "https://namu.wiki/w/%EB%B6%84%EB%A5%98:%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EC%95%A0%EB%8B%88%EB%A9%94%EC%9D%B4%EC%85%98", # 애니메이션
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EB%B9%84%ED%8C%90%20%EB%B0%8F%20%EB%85%BC%EB%9E%80", # 비판 및 논란
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EB%B9%84%ED%8C%90%20%EB%B0%8F%20%EB%85%BC%EB%9E%80/%EC%84%A4%EC%A0%95", # 비판 및 논란/설정
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EC%97%B0%ED%91%9C", # 설정
+    "https://namu.wiki/w/%EC%9D%B4%EC%82%AC%EC%95%BC%EB%A7%88%20%ED%95%98%EC%A7%80%EB%A9%94", # 이사야마 하지메
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EC%9D%B8%EA%B8%B0", # 인기
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%EC%9D%B8%EA%B8%B0%ED%88%AC%ED%91%9C", # 인기투표
+    "https://namu.wiki/w/%EC%A7%84%EA%B2%A9%EC%9D%98%20%EA%B1%B0%EC%9D%B8/%ED%8F%89%EA%B0%80" #평가
 ]
 
 CATEGORY_PATH_PREFIX = "/w/%EB%B6%84%EB%A5%98:"
@@ -68,7 +83,7 @@ def extract_structured_items(driver: webdriver.Chrome) -> List[Dict[str, object]
     script = """
     const cssEscape = (s) => s.replace(/([ !"#$%&'()*+,.\\/\\/:;<=>?@[\\\\\\]^`{|}~])/g, '\\\\$1');
     const elements = Array.from(document.querySelectorAll(
-      'h2,h3,h4,h5,h6,.wiki-paragraph,div._4tRz4taR,blockquote,table,ul,ol,details'
+      'h2,h3,h4,h5,h6,.wiki-paragraph,div._4tRz4taR,blockquote,table,ul,ol,summary'
     ));
     const extractText = (el) => {
       const clone = el.cloneNode(true);
@@ -115,14 +130,8 @@ def extract_structured_items(driver: webdriver.Chrome) -> List[Dict[str, object]
         });
         return {type: 'list', items};
       }
-      if (tag === 'details') {
-        const summaryEl = el.querySelector('summary');
-        const summary = summaryEl ? extractText(summaryEl) : '';
-        const bodyClone = el.cloneNode(true);
-        const summaryClone = bodyClone.querySelector('summary');
-        if (summaryClone) summaryClone.remove();
-        const body = extractText(bodyClone);
-        return {type: 'toggle', summary, text: body};
+      if (tag === 'summary') {
+        return {type: 'heading', level: 'h3', text: extractText(el)};
       }
       return {type: 'paragraph', text: extractText(el)};
     }).filter(Boolean);
@@ -443,7 +452,7 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="Repeat this flag to pass multiple start URLs.",
     )
-    parser.add_argument("--max-pages", type=int, default=200)
+    parser.add_argument("--max-pages", type=int, default=1000)
     parser.add_argument("--timeout", type=int, default=15)
     parser.add_argument("--render-wait", type=float, default=1.5)
     parser.add_argument(
