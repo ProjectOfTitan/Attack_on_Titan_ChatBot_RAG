@@ -20,7 +20,6 @@ load_dotenv()
 store = {}
 
 REPLACEMENTS = {
-
     "사람을 나타내는 표현": "진격의거인 애니메이션 안의 등장인물이나 사람들",
 }
 
@@ -46,7 +45,6 @@ def get_retriever():
 
 def get_history_retriever():
     llm = get_llm()
-    fast_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     retriever = get_retriever()
     
     contextualize_q_system_prompt = (
@@ -64,14 +62,14 @@ def get_history_retriever():
             ("human", "{input}"),
         ]
     )
-    # gpt5대신 gpt4
+    
     history_aware_retriever = create_history_aware_retriever(
-        fast_llm, retriever, contextualize_q_prompt
+        llm, retriever, contextualize_q_prompt
     )
     return history_aware_retriever
 
 
-def get_llm(model='gpt-5-mini'):
+def get_llm(model='gpt-4o-mini'):
     llm = ChatOpenAI(model=model)
     # llm = Ollama(model=model)
     return llm
@@ -137,7 +135,7 @@ def get_answer_chain():
     - 에르빈 스미스: 에르빈, Erwin
     - 피크 핑거: 피크, Pieck
     - 로드 레이스: 론고, 론고 레이스, 로드
-
+    
     ── 거인 ──
     - 차력 거인: 수레 거인, 카트 거인, Cart Titan
     - 시조의 거인: Founding Titan
