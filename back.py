@@ -20,7 +20,6 @@ load_dotenv()
 store = {}
 
 REPLACEMENTS = {
-
     "사람을 나타내는 표현": "진격의거인 애니메이션 안의 등장인물이나 사람들",
 }
 
@@ -39,9 +38,9 @@ def get_embeddings():
 
 @lru_cache(maxsize=1)
 def get_retriever():
-    # database = Chroma(collection_name='chroma-inu-new', persist_directory="./chroma_inu-new", embedding_function=get_embeddings())
-    database = Chroma(collection_name='attackTitan', persist_directory="./attackTitan", embedding_function=get_embeddings())
-    retriever = database.as_retriever(search_kwargs={'k': 4})   
+    # database = Chroma(collection_name='chroma-inu-new', persist_directory="./chroma_inu-new", embedding_function=get_embeddings()) # 학칙만
+    database = Chroma(collection_name='attackTitan', persist_directory="./attackTitan", embedding_function=get_embeddings()) #학칙+장학금
+    retriever = database.as_retriever(search_kwargs={'k': 4})
     return retriever
 
 def get_history_retriever():
@@ -63,7 +62,7 @@ def get_history_retriever():
             ("human", "{input}"),
         ]
     )
-    # gpt5대신 gpt4
+    
     history_aware_retriever = create_history_aware_retriever(
         llm, retriever, contextualize_q_prompt
     )
@@ -136,7 +135,6 @@ def get_answer_chain():
     - 에르빈 스미스: 에르빈, Erwin
     - 피크 핑거: 피크, Pieck
     - 로드 레이스: 론고, 론고 레이스, 로드
-
     ── 거인 ──
     - 차력 거인: 수레 거인, 카트 거인, Cart Titan
     - 시조의 거인: Founding Titan
@@ -147,9 +145,9 @@ def get_answer_chain():
     - 짐승 거인: Beast Titan
     - 턱 거인: Jaw Titan
     - 전퇴의 거인: War Hammer Titan
-
+    
     ── 가문 / 조직 ──
-    - 타이버 가문: 티부르 가문, 티부어 가문, Tybur family, Tybur, 티바 가문, 티버 가문
+    - 타이버 가문: 티부르 가문, 티부어 가문, Tybur family, Tybur
     - 아커만 가문: 아커맨 가문, 액커맨 가문, 아커만 가문
 
     [중요 규칙 3]
