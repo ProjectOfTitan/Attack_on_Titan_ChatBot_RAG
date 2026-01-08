@@ -81,146 +81,132 @@ def normalize_line(text: str) -> str:
 
 def extract_structured_items(driver: webdriver.Chrome) -> List[Dict[str, object]]:
     script = """
-    const cssEscape = (s) => s.replace(/([ !"#$%&'()*+,.\\/\\/:;<=>?@[\\\\\\]^`{|}~])/g, '\\\\$1');
-    const elements = Array.from(document.querySelectorAll(
-      'h2,h3,h4,h5,h6,.wiki-paragraph,div._4tRz4taR,blockquote,table,ul,ol,summary'
-    ));
-    const extractText = (el) => {
-      const clone = el.cloneNode(true);
-      clone.querySelectorAll('img').forEach(img => img.remove());
-      clone.querySelectorAll('a[href]').forEach(a => {
-        const text = (a.innerText || a.textContent || '').trim();
-        a.replaceWith(document.createTextNode(text || ''));
-      });
-      return (clone.innerText || clone.textContent || '').trim();
-    };
-    return elements.map(el => {
-      const escaped = (window.CSS && CSS.escape) ? CSS.escape('+0aMAP74') : cssEscape('+0aMAP74');
-      if (el.closest('div.' + escaped + '.coLEPeSv')) return null;
-      if (el.matches('table.XrDIkehY._99ba4330d69377b55a0ae92ad4998c5e')) return null;
-      if (el.closest('nav,header,footer,aside')) return null;
-      if (el.closest('.wiki-toc,.wiki-toc-wrapper,.toc,.toc-wrapper')) return null;
-      if (el.closest('.wiki-category,.category')) return null;
-      if (el.closest('.gyYVEIst._13s6c0Md')) return null;
-      if (el.closest('.F83V3QG7')) return null;
-      if (el.closest('.rqSF8he0')) return null;
-      if (el.closest('.WMQhH6LY._0ahwpliD')) return null;
-      if (el.closest('.no0DxkqA._1m7kazWY')) return null;
-      if (el.closest('ul,ol') && (el.matches('div._4tRz4taR') || el.classList.contains('wiki-paragraph'))) {
-        return null;
-      }
-      const tag = el.tagName.toLowerCase();
-      if (tag.startsWith('h')) {
-        return {type: 'heading', level: tag, text: extractText(el)};
-      }
-      if (tag === 'blockquote') {
-        return {type: 'blockquote', text: extractText(el)};
-      }
-      if (tag === 'table') {
-        const rows = Array.from(el.querySelectorAll('tr')).map(tr => {
-          return Array.from(tr.querySelectorAll('th,td')).map(td => extractText(td));
-        });
-        return {type: 'table', rows};
-      }
-      if (tag === 'ul' || tag === 'ol') {
-        const items = Array.from(el.querySelectorAll(':scope > li')).map(li => {
-          const liClone = li.cloneNode(true);
-          liClone.querySelectorAll('ul,ol').forEach(child => child.remove());
-          return extractText(liClone);
-        });
-        return {type: 'list', items};
-      }
-      if (tag === 'summary') {
-        return {type: 'heading', level: 'h3', text: extractText(el)};
-      }
-      return {type: 'paragraph', text: extractText(el)};
-    }).filter(Boolean);
+    try {
+        const elements = Array.from(document.querySelectorAll(
+            'h2, h3, h4, h5, h6, .wiki-paragraph, div._4tRz4taR, blockquote, table, ul, ol, summary'
+        ));
+
+        const extractText = (el) => {
+            const clone = el.cloneNode(true);
+            clone.querySelectorAll('img').forEach(img => img.remove());
+            clone.querySelectorAll('a[href]').forEach(a => {
+                const text = (a.innerText || a.textContent || '').trim();
+                a.replaceWith(document.createTextNode(text || ''));
+            });
+            return (clone.innerText || clone.textContent || '').trim();
+        };
+
+        return elements.map(el => {
+            const tag = el.tagName.toLowerCase();
+            
+            // 1. [핵심 수정] 인용구 중복만 '핀포인트'로 제거
+            // 부모가 blockquote인 문단(div)만 건너뜁니다. (표나 리스트는 건드리지 않음)
+            if ((tag === 'div' || el.classList.contains('wiki-paragraph')) && 
+                el.parentElement && el.parentElement.tagName === 'BLOCKQUOTE') {
+                return null;
+            }
+
+            // 2. [범위 복구] 제외 필터를 최소화하여 섹션 9, 10이 나오도록 합니다.
+            // .wiki-category 등을 제외 목록에서 빼서 최대한 다 가져오게 합니다.
+            if (el.closest('nav, header, footer, aside, .wiki-toc, .wiki-toc-wrapper')) {
+                return null;
+            }
+
+            const text = extractText(el);
+            if (!text && tag !== 'table') return null;
+
+            // --- 데이터 구조화 ---
+            if (tag.startsWith('h')) return {type: 'heading', level: tag, text: text};
+            if (tag === 'summary') return {type: 'heading', level: 'h3', text: text};
+            if (tag === 'blockquote') return {type: 'blockquote', text: text};
+            
+            if (tag === 'table') {
+                const rows = Array.from(el.querySelectorAll('tr')).map(tr => {
+                    return Array.from(tr.querySelectorAll('th, td')).map(td => extractText(td));
+                });
+                return {type: 'table', rows};
+            }
+            
+            if (tag === 'ul' || tag === 'ol') {
+                const items = Array.from(el.querySelectorAll(':scope > li')).map(li => {
+                    const liClone = li.cloneNode(true);
+                    liClone.querySelectorAll('ul, ol').forEach(child => child.remove());
+                    return extractText(liClone);
+                });
+                return {type: 'list', items};
+            }
+
+            return {type: 'paragraph', text: text};
+        }).filter(Boolean);
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
     """
-    return driver.execute_script(script) or []
+    results = driver.execute_script(script)
+    # print(f"[디버그] 수집된 아이템 개수: {len(results)}개")
+    return results or []
 
 
 def build_blocks(items: List[Dict[str, object]], min_block_chars: int) -> List[Dict[str, str]]:
     blocks: List[Dict[str, str]] = []
-    current_section: Optional[str] = None
+    current_section: str = "제목 없음" # 초기값 설정
+
+    # print("\n[구조화 시작] 섹션 감지 테스트...") # 디버깅용
 
     for item in items:
         item_type = item.get("type")
+        raw_text = str(item.get("text") or "").strip()
+        
+        # 1. 헤딩(제목) 처리 - 이 부분이 섹션을 전환함
         if item_type == "heading":
-            text = normalize_line(str(item.get("text") or ""))
-            if text:
-                current_section = text
+            # [수정] 헤딩은 너무 엄격하게 normalize 하지 말고 공백만 제거합니다.
+            clean_title = raw_text.replace("[편집]", "").strip()
+            if clean_title:
+                current_section = clean_title
+                # print(f" -> 새 섹션 감지됨: {current_section}") # 터미널 출력으로 확인 가능
+            continue
+
+        # 2. 본문 텍스트 처리
+        text = normalize_line(raw_text)
+        
+        # 텍스트가 너무 짧으면 무시 (min_block_chars 기준)
+        if len(text) < min_block_chars:
             continue
 
         if item_type == "paragraph":
-            text = normalize_line(str(item.get("text") or ""))
-            if len(text) >= min_block_chars:
-                blocks.append(
-                    {"section": current_section or "", "type": "paragraph", "text": text}
-                )
+            blocks.append({"section": current_section, "type": "paragraph", "text": text})
+        
         elif item_type == "blockquote":
-            text = normalize_line(str(item.get("text") or ""))
-            if len(text) >= min_block_chars:
-                blocks.append(
-                    {
-                        "section": current_section or "",
-                        "type": "blockquote",
-                        "text": "[QUOTE]\\n" + text + "\\n[/QUOTE]",
-                    }
-                )
+            blocks.append({
+                "section": current_section,
+                "type": "blockquote",
+                "text": f"[QUOTE]\n{text}\n[/QUOTE]"
+            })
+            
         elif item_type == "table":
             rows = item.get("rows") or []
             rendered_rows: List[str] = []
             for row in rows:
-                row_cells = [
-                    normalize_line(str(c).replace("\n", " "))
-                    for c in row
-                    if c is not None
-                ]
-                row_cells = [c for c in row_cells if c]
-                if not row_cells:
-                    continue
-                rendered_rows.append("| " + " | ".join(row_cells) + " |")
+                row_cells = [normalize_line(str(c)) for c in row if c]
+                if row_cells:
+                    rendered_rows.append("| " + " | ".join(row_cells) + " |")
             if rendered_rows:
-                blocks.append(
-                    {
-                        "section": current_section or "",
-                        "type": "table",
-                        "text": "[TABLE]\\n" + "\\n".join(rendered_rows) + "\\n[/TABLE]",
-                    }
-                )
+                blocks.append({
+                    "section": current_section,
+                    "type": "table",
+                    "text": "[TABLE]\n" + "\n".join(rendered_rows) + "\n[/TABLE]"
+                })
+                
         elif item_type == "list":
             items_list = item.get("items") or []
             list_items = [normalize_line(str(i)) for i in items_list if str(i).strip()]
             if list_items:
                 rendered = "\n".join([f"- {i}" for i in list_items])
-                blocks.append(
-                    {"section": current_section or "", "type": "list", "text": rendered}
-                )
-        elif item_type == "toggle":
-            summary = normalize_line(str(item.get("summary") or ""))
-            text = normalize_line(str(item.get("text") or ""))
-            if summary:
-                current_section = summary
-            if len(text) >= min_block_chars:
-                blocks.append(
-                    {"section": current_section or "", "type": "toggle", "text": text}
-                )
+                blocks.append({"section": current_section, "type": "list", "text": rendered})
 
-    if not blocks:
-        return blocks
-    deduped: List[Dict[str, str]] = []
-    seen: Set[tuple[str, str, str]] = set()
-    for block in blocks:
-        key = (
-            block.get("section", ""),
-            block.get("type", ""),
-            block.get("text", ""),
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(block)
-    return deduped
+    # print(f"[구조화 완료] 총 {len(blocks)}개의 블록 생성됨\n")
+    return blocks
 
 
 def chunk_blocks(
@@ -248,6 +234,8 @@ def chunk_blocks(
                 }
             )
             chunk_index += 1
+        
+        # 중첩(overlap) 처리
         if chunk_overlap > 0 and text:
             tail = text[-chunk_overlap:]
             current = [tail]
@@ -259,7 +247,9 @@ def chunk_blocks(
     def emit_single(text: str, section: str) -> None:
         nonlocal current, current_len, chunk_index, current_section
         if current:
+            # 기존 버퍼가 있다면 비우고 새로운 섹션 적용
             flush()
+        
         chunks.append(
             {
                 "section": section,
@@ -276,21 +266,31 @@ def chunk_blocks(
         section = block.get("section", "")
         text = block.get("text", "").strip()
         block_type = block.get("type", "")
+        
         if not text:
             continue
-        if section and section != current_section and current:
-            flush()
+
+        # [수정 포인트] 섹션이 바뀌었는지 확인 (버퍼가 비어있어도 섹션 이름은 업데이트해야 함)
+        if section and section != current_section:
+            if current:
+                # 버퍼에 내용이 있다면 이전 섹션 이름으로 내보냄
+                # (단, overlap 데이터가 다음 섹션으로 넘어가지 않게 flush 로직 확인 필요)
+                # 여기서는 섹션이 바뀌면 overlap을 적용하지 않고 깔끔하게 비웁니다.
+                temp_overlap = chunk_overlap
+                chunk_overlap = 0 # 섹션 경계에선 overlap 방지
+                flush()
+                chunk_overlap = temp_overlap
+            
             current_section = section
-            # Do not carry overlap across section boundaries.
             current = []
             current_len = 0
-        elif section and not current_section:
-            current_section = section
 
+        # 표나 인용구는 덩어리째로 저장
         if block_type in {"table", "blockquote"}:
             emit_single(text, current_section)
             continue
 
+        # 너무 긴 텍스트는 강제로 자름
         if len(text) > chunk_size:
             if current:
                 flush()
@@ -307,6 +307,7 @@ def chunk_blocks(
                     chunk_index += 1
             continue
 
+        # 일반 텍스트 합치기
         if current_len + len(text) + 1 <= chunk_size:
             current.append(text)
             current_len += len(text) + 1
