@@ -87,3 +87,5 @@ python langgraph/run_graph.py --question "에렌은 왜 땅울림을 했어?"
 - 2026-01-05: RAGAS 평가 스크립트 추가 및 JSON 저장/재평가 흐름 정리
 - 2026-01-07: data의 section부분이 누락되는 것을 확인. 크롤링 부분 재점검 필요 느낌
 - 2026-01-08: section 누락 부분 해결 완료 -> if문에 의해 잘못 파싱되는 문제가 있었음.
+- 2026-01-09: upstage embedding model + Solar2 model 적용 (이전엔 openai api였음)
+- 2026-01-09: AoT -> 새롭게 파싱해서 새로운 vectordb 생성(완)
