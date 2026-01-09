@@ -8,7 +8,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
-
+from langchain_upstage import ChatUpstage, UpstageEmbeddings
 from dotenv import load_dotenv
 
 from config import answer_examples
@@ -33,13 +33,13 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
 
 @lru_cache(maxsize=1)
 def get_embeddings():
-    return OpenAIEmbeddings(model='text-embedding-3-small')
+    return UpstageEmbeddings(model='solar-embedding-1-large')
 
 
 @lru_cache(maxsize=1)
 def get_retriever():
     # database = Chroma(collection_name='chroma-inu-new', persist_directory="./chroma_inu-new", embedding_function=get_embeddings())
-    database = Chroma(collection_name='attackTitan', persist_directory="./attackTitan", embedding_function=get_embeddings())
+    database = Chroma(collection_name='AoT', persist_directory="./AoT", embedding_function=get_embeddings())
     retriever = database.as_retriever(search_kwargs={'k': 4})   
     return retriever
 
@@ -69,9 +69,8 @@ def get_history_retriever():
     return history_aware_retriever
 
 
-def get_llm(model='gpt-4o-mini'):
-    llm = ChatOpenAI(model=model)
-    # llm = Ollama(model=model)
+def get_llm(model='solar-pro2'):
+    llm = ChatUpstage(model=model)
     return llm
 
 
