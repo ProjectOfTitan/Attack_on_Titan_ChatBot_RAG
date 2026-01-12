@@ -55,9 +55,7 @@ TABLE_ALLOWED_KEYWORDS = [
     "일람",
     "정리",
 ]
-TABLE_ALLOWED_PATTERN = re.compile(
-    r"(누구야|누구임|누구냐|어떤 인물|어떤 사람|어떤 캐릭터|구성원|멤버|명단|리스트|계보)"
-)
+TABLE_ALLOWED_PATTERN = re.compile(r"(구성원|멤버|명단|리스트|계보)")
 
 
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
@@ -135,7 +133,21 @@ def _is_table_or_titleless(doc) -> bool:
     return "[TABLE]" in text or "섹션: 제목 없음" in text or section == "제목 없음"
 
 
+def _allow_spinoff_docs(question: str) -> bool:
+    if not question:
+        return False
+    return "외전" in question or "거인 중학교" in question
+
+
+def _is_spinoff_doc(doc) -> bool:
+    metadata = doc.metadata or {}
+    title = (metadata.get("title") or "")
+    return "거인 중학교" in title
+
+
 def _filter_retrieved_docs(question: str, docs):
+    if not _allow_spinoff_docs(question):
+        docs = [doc for doc in docs if not _is_spinoff_doc(doc)]
     if _allow_table_docs(question):
         return docs
     filtered = [doc for doc in docs if not _is_table_or_titleless(doc)]
