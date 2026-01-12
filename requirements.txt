@@ -69,7 +69,7 @@ jsonschema==4.25.1
 jsonschema-specifications==2025.9.1
 jupyter_client==8.7.0
 jupyter_core==5.9.1
-kubernetes==34.1.0
+kubernetes
 langchain==1.2.0
 langchain-chroma==1.1.0
 langchain-classic==1.0.1
@@ -156,7 +156,7 @@ rpds-py==0.30.0
 rsa==4.9.1
 scikit-network==0.33.5
 scipy==1.15.3
-selenium==4.39.0
+selenium
 shellingham==1.5.4
 six==1.17.0
 smmap==5.0.2
@@ -183,7 +183,7 @@ typing-inspect==0.9.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.3
-urllib3==2.3.0
+urllib3
 uuid_utils==0.12.0
 uvicorn==0.40.0
 uvloop==0.22.1
