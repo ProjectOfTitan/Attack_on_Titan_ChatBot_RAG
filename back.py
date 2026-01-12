@@ -76,7 +76,7 @@ def get_embeddings():
 def get_retriever():
     # database = Chroma(collection_name='chroma-inu-new', persist_directory="./chroma_inu-new", embedding_function=get_embeddings())
     database = Chroma(collection_name='AoT', persist_directory="./AoT", embedding_function=get_embeddings())
-    retriever = database.as_retriever(search_kwargs={'k': 8})   
+    retriever = database.as_retriever(search_kwargs={'k': 4})   
     return retriever
 
 def get_history_retriever():
@@ -139,7 +139,9 @@ def _filter_retrieved_docs(question: str, docs):
     if _allow_table_docs(question):
         return docs
     filtered = [doc for doc in docs if not _is_table_or_titleless(doc)]
-    return filtered or docs
+    if len(filtered) >= 2:
+        return filtered
+    return docs
 
 
 def _sanitize_metadata(metadata: dict) -> dict:
