@@ -1,4 +1,5 @@
 from functools import lru_cache
+import re
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, FewShotChatMessagePromptTemplate
 from langchain_classic.chains import create_history_aware_retriever
@@ -22,6 +23,41 @@ store = {}
 REPLACEMENTS = {
     "사람을 나타내는 표현": "진격의거인 애니메이션 안의 등장인물이나 사람들",
 }
+
+TABLE_ALLOWED_KEYWORDS = [
+    "소개",
+    "프로필",
+    "정보",
+    "설명",
+    "요약",
+    "정체",
+    "인물",
+    "캐릭터",
+    "설정",
+    "신체",
+    "키",
+    "나이",
+    "생일",
+    "출신",
+    "소속",
+    "계급",
+    "가문",
+    "종족",
+    "능력",
+    "전투력",
+    "특징",
+    "목록",
+    "순위",
+    "랭킹",
+    "멤버",
+    "구성원",
+    "등장인물",
+    "일람",
+    "정리",
+]
+TABLE_ALLOWED_PATTERN = re.compile(
+    r"(누구야|누구임|누구냐|어떤 인물|어떤 사람|어떤 캐릭터|구성원|멤버|명단|리스트|계보)"
+)
 
 
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
@@ -81,6 +117,31 @@ def normalize_question(question: str) -> str:
     return normalized
 
 
+def _allow_table_docs(question: str) -> bool:
+    if not question:
+        return False
+    if TABLE_ALLOWED_PATTERN.search(question):
+        return True
+    for keyword in TABLE_ALLOWED_KEYWORDS:
+        if keyword in question:
+            return True
+    return False
+
+
+def _is_table_or_titleless(doc) -> bool:
+    text = (doc.page_content or "")
+    metadata = doc.metadata or {}
+    section = metadata.get("section") or ""
+    return "[TABLE]" in text or "섹션: 제목 없음" in text or section == "제목 없음"
+
+
+def _filter_retrieved_docs(question: str, docs):
+    if _allow_table_docs(question):
+        return docs
+    filtered = [doc for doc in docs if not _is_table_or_titleless(doc)]
+    return filtered or docs
+
+
 def _sanitize_metadata(metadata: dict) -> dict:
     if not metadata:
         return {}
@@ -106,7 +167,19 @@ def get_answer_chain():
         examples=answer_examples,
     )
     system_prompt = (
-    """
+    """당신은 애니메이션 및 원작 만화 『진격의 거인』(Attack on Titan)의 설정, 스토리, 인물, 세계관에 대해
+    정확하고 깊이 있는 지식을 가진 전문가입니다.
+    
+
+    [중요 규칙 1]
+    사용자의 질문이 '진격의 거인' 작품 내용이나 작가(이사야마 하지메), 성우, 제작사, 관련 설정 등 작품과 관련된 메타 정보인 경우 답변을 제공하십시오. 
+    단, 작품과 전혀 관계없는(예: 어제 날씨, 수학 문제, 타 작품 등) 질문일 경우에만 반드시 다음과 같이 답변하십시오: "모르겠습니다. 진격의 거인과 관련된 질문만 답변할 수 있습니다."
+
+    [중요 규칙 2 - 이름 및 용어 표기 통일]
+    사용자가 번역 차이, 음역 차이, 오타, 별칭 등으로 질문하더라도
+    아래의 대응 관계를 자동으로 동일 개체로 인식해야 합니다.
+
+    
     당신은 애니메이션 및 원작 만화 『진격의 거인』(Attack on Titan)의
     설정, 스토리, 인물, 세계관에 대해 정확하고 깊이 있는 지식을 가진 전문가입니다.
 
@@ -124,6 +197,7 @@ def get_answer_chain():
     [중요 규칙 2 - 이름 및 용어 표기 통일]
     사용자가 번역 차이, 음역 차이, 오타, 별칭 등을 사용하더라도
     아래 대응 관계를 자동으로 동일 개체로 인식해야 합니다.
+
     단, 답변에서는 반드시 한국 공식 번역 기준의 정식 명칭만 사용하십시오.
 
     ── 인물 ──
@@ -154,6 +228,19 @@ def get_answer_chain():
 
     ── 가문 / 조직 ──
     - 타이버 가문: 티부르 가문, 티부어 가문, Tybur family, Tybur, 티바 가문
+
+    - 아커만 가문: 아커맨 가문, 액커맨 가문, 아커만 가문
+
+    [중요 규칙 3]
+    인물, 사건, 설정에 대해 답변할 때는
+    - 작중 시점
+    - 애니메이션 / 만화 기준 여부
+    - 명확히 밝혀진 설정과 해석의 영역을 구분
+    하여 서술하십시오.
+
+    [중요 규칙 4]
+    질문이 들어오면 답변을 찾을 때 주어와 목적어를 엄격하게 구분하여서 확실하게 대답하세요.
+
     - 아커만 가문: 아커맨 가문, 액커맨 가문
     ────────────────────────────────
 
@@ -192,9 +279,6 @@ def get_answer_chain():
     반드시 공식 설정과 작중 근거 해석을 구분하여 서술하십시오.
     ────────────────────────────────
 
-    
-
-    \n\n{context}
     """
     )
     
@@ -227,10 +311,12 @@ def retrieve_docs(question: str, session_id: str):
     history = get_session_history(session_id)
     if len(history.messages) >= 2:
         history_aware_retriever = get_history_retriever()
-        return history_aware_retriever.invoke(
+        docs = history_aware_retriever.invoke(
             {"input": question, "chat_history": history.messages}
         )
-    return get_retriever().invoke(question)
+        return _filter_retrieved_docs(question, docs)
+    docs = get_retriever().invoke(question)
+    return _filter_retrieved_docs(question, docs)
 
 
 def _stream_answer(chain, inputs: dict, history: BaseChatMessageHistory, user_message: str):

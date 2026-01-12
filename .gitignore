@@ -16,6 +16,7 @@ ragas_eval_from_json.py
 task/
 init_mongo_schema.py
 ragas_answers.json
+langgraph/
 
 # OS 설정 파일
 .DS_Store

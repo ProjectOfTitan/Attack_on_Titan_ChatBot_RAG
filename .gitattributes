@@ -1,3 +1,6 @@
 AoT/** filter=lfs diff=lfs merge=lfs -text
+<<<<<<< HEAD
+=======
 *.sqlite3 filter=lfs diff=lfs merge=lfs -text
 *.bin filter=lfs diff=lfs merge=lfs -text
+>>>>>>> bbdbe45cb90c345c3ea335cd928fb045e20baa1f
