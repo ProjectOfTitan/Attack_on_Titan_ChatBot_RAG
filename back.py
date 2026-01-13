@@ -55,9 +55,7 @@ TABLE_ALLOWED_KEYWORDS = [
     "일람",
     "정리",
 ]
-TABLE_ALLOWED_PATTERN = re.compile(
-    r"(누구야|누구임|누구냐|어떤 인물|어떤 사람|어떤 캐릭터|구성원|멤버|명단|리스트|계보)"
-)
+TABLE_ALLOWED_PATTERN = re.compile(r"(구성원|멤버|명단|리스트|계보)")
 
 
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
@@ -73,15 +71,27 @@ def get_embeddings():
 
 
 @lru_cache(maxsize=1)
-def get_retriever():
+def get_vectorstore():
     # database = Chroma(collection_name='chroma-inu-new', persist_directory="./chroma_inu-new", embedding_function=get_embeddings())
-    database = Chroma(collection_name='AoT', persist_directory="./AoT", embedding_function=get_embeddings())
-    retriever = database.as_retriever(search_kwargs={'k': 4})   
-    return retriever
+    return Chroma(
+        collection_name='AoT',
+        persist_directory="./AoT",
+        embedding_function=get_embeddings(),
+    )
 
-def get_history_retriever():
+
+def get_retriever(metadata_filter: dict | None = None):
+    search_kwargs = {"k": 6, "fetch_k": 24}
+    if metadata_filter:
+        search_kwargs["filter"] = metadata_filter
+    return get_vectorstore().as_retriever(
+        search_type="mmr",
+        search_kwargs=search_kwargs,
+    )
+
+def get_history_retriever(metadata_filter: dict | None = None):
     llm = get_llm()
-    retriever = get_retriever()
+    retriever = get_retriever(metadata_filter)
     
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
@@ -135,11 +145,33 @@ def _is_table_or_titleless(doc) -> bool:
     return "[TABLE]" in text or "섹션: 제목 없음" in text or section == "제목 없음"
 
 
+def _allow_spinoff_docs(question: str) -> bool:
+    if not question:
+        return False
+    return "외전" in question or "거인 중학교" in question
+
+
+def _is_spinoff_doc(doc) -> bool:
+    metadata = doc.metadata or {}
+    title = (metadata.get("title") or "")
+    return "거인 중학교" in title
+
+
+def _build_metadata_filter(question: str) -> dict | None:
+    if _allow_spinoff_docs(question):
+        return None
+    return {"is_spinoff": False}
+
+
 def _filter_retrieved_docs(question: str, docs):
+    if not _allow_spinoff_docs(question):
+        docs = [doc for doc in docs if not _is_spinoff_doc(doc)]
     if _allow_table_docs(question):
         return docs
     filtered = [doc for doc in docs if not _is_table_or_titleless(doc)]
-    return filtered or docs
+    if filtered:
+        return filtered
+    return docs
 
 
 def _sanitize_metadata(metadata: dict) -> dict:
@@ -317,13 +349,21 @@ def get_retrieved_context(user_message: str, session_id: str):
 
 def retrieve_docs(question: str, session_id: str):
     history = get_session_history(session_id)
+    metadata_filter = _build_metadata_filter(question)
     if len(history.messages) >= 2:
-        history_aware_retriever = get_history_retriever()
+        history_aware_retriever = get_history_retriever(metadata_filter)
         docs = history_aware_retriever.invoke(
             {"input": question, "chat_history": history.messages}
         )
+        if metadata_filter and not docs:
+            history_aware_retriever = get_history_retriever()
+            docs = history_aware_retriever.invoke(
+                {"input": question, "chat_history": history.messages}
+            )
         return _filter_retrieved_docs(question, docs)
-    docs = get_retriever().invoke(question)
+    docs = get_retriever(metadata_filter).invoke(question)
+    if metadata_filter and not docs:
+        docs = get_retriever().invoke(question)
     return _filter_retrieved_docs(question, docs)
 
 
