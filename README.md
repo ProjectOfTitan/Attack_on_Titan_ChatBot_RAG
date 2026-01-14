@@ -89,3 +89,4 @@ python langgraph/run_graph.py --question "에렌은 왜 땅울림을 했어?"
 - 2026-01-08: section 누락 부분 해결 완료 -> if문에 의해 잘못 파싱되는 문제가 있었음.
 - 2026-01-09: upstage embedding model + Solar2 model 적용 (이전엔 openai api였음)
 - 2026-01-09: AoT -> 새롭게 파싱해서 새로운 vectordb 생성(완)
+- 2026-01-14: AoT -> 메타데이터 추가 후 검색 정확도 향상
