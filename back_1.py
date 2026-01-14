@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+
 import re
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, FewShotChatMessagePromptTemplate
