@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -16,8 +19,10 @@ from profiles import (
 from runtime import PROJECT_ROOT
 
 
+DEFAULT_RUNS_DIR = Path(__file__).resolve().parent / "runs"
 DEFAULT_CASES_PATH = Path(__file__).resolve().parent / "cases" / "smoke_cases.json"
-DEFAULT_OUTPUT_PATH = Path(__file__).resolve().parent / "runs" / "latest_results.json"
+DEFAULT_OUTPUT_PATH = DEFAULT_RUNS_DIR / "latest_results.json"
+DEFAULT_HISTORY_DIR = DEFAULT_RUNS_DIR / "history"
 
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
@@ -26,6 +31,46 @@ def load_cases(path: Path) -> list[dict[str, Any]]:
     if not isinstance(cases, list):
         raise ValueError("Cases JSON must be a list.")
     return cases
+
+
+def make_iso_timestamp(moment: datetime) -> str:
+    return moment.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def get_git_commit() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception:
+        return None
+    commit = result.stdout.strip()
+    return commit if result.returncode == 0 and commit else None
+
+
+def sanitize_label(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-_.") or "run"
+
+
+def build_run_id(started: datetime, profile_name: str, run_label: str | None) -> str:
+    timestamp = started.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    profile_slug = sanitize_label(profile_name)
+    label_slug = sanitize_label(run_label) if run_label else None
+    if label_slug:
+        return f"{timestamp}__{profile_slug}__{label_slug}"
+    return f"{timestamp}__{profile_slug}"
+
+
+def build_history_output_path(run_id: str) -> Path:
+    return DEFAULT_HISTORY_DIR / f"{run_id}.json"
+
+
+def get_case_id(case: dict[str, Any]) -> str:
+    return str(case.get("id") or case["question"])
 
 
 def _contains_substring(values: list[str], expected: list[str]) -> tuple[bool, list[str]]:
@@ -57,7 +102,7 @@ def _contains_none(answer: str, forbidden_parts: list[str]) -> tuple[bool, list[
 def evaluate_case(case: dict[str, Any], profile_name: str) -> dict[str, Any]:
     from back import answer_question, clear_session_history, summarize_contexts
 
-    case_id = case.get("id") or case["question"]
+    case_id = get_case_id(case)
     session_id = f"harness::{case_id}"
     clear_session_history(session_id)
     turn = answer_question(
@@ -214,6 +259,39 @@ def write_output(path: Path, payload: dict[str, Any]) -> None:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
 
 
+def get_failed_checks(result: dict[str, Any]) -> list[str]:
+    return [
+        check_name
+        for check_name, passed in result.get("checks", {}).items()
+        if not passed
+    ]
+
+
+def print_case_progress(
+    index: int,
+    total: int,
+    case: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    status = "PASS" if result["passed"] else "FAIL"
+    detail_parts = [f"{result['latency_ms']} ms"]
+    failed_checks = get_failed_checks(result)
+    if failed_checks:
+        detail_parts.append(f"failed_checks={', '.join(failed_checks)}")
+    if result.get("missing_parts"):
+        detail_parts.append(f"missing={', '.join(result['missing_parts'])}")
+    if result.get("forbidden_parts_found"):
+        detail_parts.append(
+            f"forbidden={', '.join(result['forbidden_parts_found'])}"
+        )
+
+    print(
+        f"[{index}/{total}] {get_case_id(case)} ({case.get('category', 'general')}) -> "
+        f"{status} | {' | '.join(detail_parts)}",
+        flush=True,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", default=str(DEFAULT_CASES_PATH))
@@ -221,6 +299,8 @@ def main() -> None:
     parser.add_argument("--profile", default=get_default_profile_name())
     parser.add_argument("--judge-profile")
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--run-label")
+    parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--with-ragas", action="store_true")
     parser.add_argument("--list-profiles", action="store_true")
     args = parser.parse_args()
@@ -236,27 +316,65 @@ def main() -> None:
     profile = resolve_profile(args.profile)
     judge_profile_name = args.judge_profile or profile.name
 
+    started = datetime.now(timezone.utc)
+    run_id = build_run_id(started, profile.name, args.run_label)
+    history_path = build_history_output_path(run_id)
+
     cases = load_cases(case_path)
     if args.limit is not None:
         cases = cases[: args.limit]
 
-    results = [evaluate_case(case, profile.name) for case in cases]
+    if not args.quiet:
+        print(
+            f"Starting harness run {run_id} | profile={profile.name} | cases={len(cases)}",
+            flush=True,
+        )
+
+    results = []
+    for index, case in enumerate(cases, start=1):
+        if not args.quiet:
+            print(
+                f"[{index}/{len(cases)}] Running {get_case_id(case)}...",
+                flush=True,
+            )
+        result = evaluate_case(case, profile.name)
+        results.append(result)
+        if not args.quiet:
+            print_case_progress(index, len(cases), case, result)
+
     summary = build_summary(results)
+    finished = datetime.now(timezone.utc)
     payload = {
+        "run_id": run_id,
+        "run_label": args.run_label,
+        "started_at": make_iso_timestamp(started),
+        "finished_at": make_iso_timestamp(finished),
         "project_root": str(PROJECT_ROOT),
+        "profile_name": profile.name,
         "cases_path": str(case_path),
+        "case_count": len(cases),
+        "with_ragas": args.with_ragas,
+        "git_commit": get_git_commit(),
         "profile": profile.to_public_dict(),
         "summary": summary,
         "results": results,
     }
 
     if args.with_ragas:
+        if not args.quiet:
+            eligible_count = sum(1 for result in results if result.get("ground_truth"))
+            print(
+                f"Running RAGAS for {eligible_count} eligible cases with judge profile={judge_profile_name}",
+                flush=True,
+            )
         payload["ragas"] = evaluate_with_ragas(results, judge_profile_name)
 
     write_output(output_path, payload)
+    write_output(history_path, payload)
 
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     print(f"Saved harness results to {output_path}")
+    print(f"Saved harness history to {history_path}")
 
 
 if __name__ == "__main__":

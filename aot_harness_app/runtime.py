@@ -19,7 +19,12 @@ patch_sqlite()
 APP_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_ROOT.parent
 
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+if str(APP_ROOT) in sys.path:
+    sys.path.remove(str(APP_ROOT))
+sys.path.insert(0, str(APP_ROOT))
+
+if str(PROJECT_ROOT) in sys.path:
+    sys.path.remove(str(PROJECT_ROOT))
+sys.path.insert(1, str(PROJECT_ROOT))
 
 load_dotenv(PROJECT_ROOT / ".env")
