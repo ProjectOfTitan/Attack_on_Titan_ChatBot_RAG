@@ -1,0 +1,51 @@
+[
+  {
+    "id": "out_of_domain_refusal",
+    "category": "guardrail",
+    "question": "오늘 서울 날씨 어때?",
+    "must_contain": [
+      "모르겠습니다. 진격의 거인과 관련된 질문만 답변할 수 있습니다."
+    ],
+    "min_contexts": 1
+  },
+  {
+    "id": "mikasa_eren_relationship",
+    "category": "relationship",
+    "question": "미카사가 에렌을 유독 챙기는 이유가 뭐야?",
+    "expected_titles": [
+      "미카사",
+      "에렌"
+    ],
+    "forbid_is_table": true,
+    "forbid_is_quote": true,
+    "must_contain": [
+      "미카사",
+      "에렌"
+    ],
+    "min_contexts": 2
+  },
+  {
+    "id": "military_roles",
+    "category": "lore",
+    "question": "조사병단, 헌병단, 주둔병단은 각각 어떤 역할을 맡고 있어?",
+    "must_contain": [
+      "조사병단",
+      "헌병단",
+      "주둔병단"
+    ],
+    "ground_truth": "조사병단은 벽 바깥 조사와 거인 대응을 맡고, 헌병단은 왕정과 수도 치안 및 요인 보호를 맡으며, 주둔병단은 성벽 방어와 지역 수비를 맡는다.",
+    "min_contexts": 2
+  },
+  {
+    "id": "old_levi_squad",
+    "category": "character",
+    "question": "구 리바이반의 멤버들의 이름을 알려줘",
+    "must_contain": [
+      "페트라",
+      "올오",
+      "에르드",
+      "군타"
+    ],
+    "min_contexts": 2
+  }
+]
