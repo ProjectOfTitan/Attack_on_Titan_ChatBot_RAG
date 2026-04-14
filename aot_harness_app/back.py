@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import pysqlite3
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 import time
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from typing import Any, Iterator
 
 from langchain_chroma import Chroma
-from langchain_classic.chains import create_history_aware_retriever
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-from langchain_classic.retrievers.multi_query import MultiQueryRetriever
+from langchain.chains import create_history_aware_retriever
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.prompts import (

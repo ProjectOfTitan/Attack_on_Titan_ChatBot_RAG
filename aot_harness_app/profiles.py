@@ -52,7 +52,7 @@ class PipelineProfile:
     embedding: EmbeddingConfig
     vectorstore: VectorstoreConfig
     retriever_k: int = 4
-    multi_query: bool = True
+    multi_query: bool = False
     query_variant_count: int = 3
 
     def to_public_dict(self) -> dict[str, Any]:
